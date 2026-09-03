@@ -1,0 +1,14 @@
+# Both are wrangler's own dependencies and their install scripts only unpack a
+# platform binary: esbuild bundles, workerd is the Workers runtime `wrangler dev` runs.
+allowBuilds:
+  esbuild: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - '@cloudflare/workerd-darwin-64@1.20260903.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20260903.1'
+  - '@cloudflare/workerd-linux-64@1.20260903.1'
+  - '@cloudflare/workerd-linux-arm64@1.20260903.1'
+  - '@cloudflare/workerd-windows-64@1.20260903.1'
+  - miniflare@5.20260903.0-alpha
+  - workerd@1.20260903.1
+  - wrangler@4.129.0

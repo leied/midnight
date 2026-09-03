@@ -1,0 +1,30 @@
+{
+  "$schema": "./config.schema.json",
+
+  "name": "Jane Doe",
+  "bio": "Quick description. Quick description. Quick description.\nSecond line if you want one.",
+  "avatar": null,
+
+  "meta": {
+    "title": "Jane Doe",
+    "description": "Links for Jane Doe.",
+    "url": "https://example.com",
+    "themeColor": "#000000"
+  },
+
+  "theme": {
+    "accent": "#ffffff",
+    "brandColors": true,
+    "font": "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif",
+    "radius": "14px"
+  },
+
+  "links": [
+    { "name": "GitHub",    "url": "https://github.com/janedoe" },
+    { "name": "YouTube",   "url": "https://youtube.com/@janedoe" },
+    { "name": "Twitter",   "url": "https://x.com/janedoe" },
+    { "name": "Instagram", "url": "https://instagram.com/janedoe" }
+  ],
+
+  "footer": "Powered by Midnight"
+}

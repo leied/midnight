@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Midnight config",
+  "type": "object",
+  "required": ["name", "links"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "description": "Display name shown under the avatar." },
+    "bio": { "type": "string", "description": "Short description. \\n starts a new line." },
+    "avatar": {
+      "type": ["string", "null"],
+      "description": "Image URL or a path to a file in dist/. Omit to render initials instead."
+    },
+    "footer": { "type": "string", "description": "Small bottom-right line. Omit to hide." },
+    "meta": {
+      "type": "object",
+      "description": "SEO / social card metadata.",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string", "description": "Canonical URL of the deployed page." },
+        "themeColor": { "type": "string" },
+        "lang": { "type": "string", "default": "en" }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "accent": { "type": "string", "description": "Colour for focus rings and non-brand icons.", "default": "#ffffff" },
+        "brandColors": { "type": "boolean", "description": "Tint each row with its brand colour on hover.", "default": true },
+        "font": { "type": "string", "description": "CSS font-family stack." },
+        "radius": { "type": "string", "description": "Corner radius of the link rows.", "default": "14px" },
+        "keys": { "type": "boolean", "description": "Keyboard shortcuts: show a hint on each row and jump when that key is pressed.", "default": true }
+      }
+    },
+    "links": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "name": { "type": "string", "description": "Row text, and what the icon is matched against (e.g. \"GitHub\")." },
+          "url": { "type": "string", "description": "https://, mailto: or tel: target." },
+          "label": { "type": "string", "description": "Override the row text while keeping \"name\" for icon matching." },
+          "icon": {
+            "type": ["string", "boolean"],
+            "description": "Simple Icons slug to force (e.g. \"x\"), or false for no icon."
+          },
+          "key": {
+            "type": ["string", "boolean"],
+            "description": "Keyboard shortcut for this row. Omit to auto-assign from the name; false for none.",
+            "maxLength": 1
+          }
+        }
+      }
+    }
+  }
+}

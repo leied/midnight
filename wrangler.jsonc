@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Rename this to change the *.workers.dev subdomain you get on first deploy.
+  "name": "midnight",
+  "compatibility_date": "2026-09-01",
+
+  // Static-assets-only Worker: no server code, the whole site is dist/.
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    // One-page site — any unknown path just shows the profile instead of a 404.
+    "not_found_handling": "single-page-application"
+  },
+
+  "observability": { "enabled": true }
+}
