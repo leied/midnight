@@ -1,8 +1,9 @@
 /**
  * Midnight — builds a single self-contained AMOLED link-in-bio page from config.json.
  *
- * Icons come from Simple Icons (CC0-1.0), resolved at build time and inlined,
- * so the deployed page ships zero JavaScript and makes zero third-party requests.
+ * Brand marks come from Simple Icons (CC0-1.0). Every mark a build actually uses is
+ * copied into icons/icons.json and committed, so the page — and any later build or
+ * deploy — needs nothing fetched or installed.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,32 +14,84 @@ const require = createRequire(import.meta.url);
 const root = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(root, 'dist');
 const CONFIG = path.join(root, 'config.json');
+const ICONS = path.join(root, 'icons', 'icons.json');
 
 /* ---------------------------------------------------------------- icon set */
 
-const iconsData = require('simple-icons/icons.json');
-const ICONS_DIR = path.resolve(path.dirname(require.resolve('simple-icons/icons.json')), '../icons');
+const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-const key = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+// The committed subset: { slug: { title, hex, keys, path } }.
+const store = (() => {
+  try { return JSON.parse(fs.readFileSync(ICONS, 'utf8')); } catch { return {}; }
+})();
+const vendored = store.icons ?? {};
+// Snapshot of what is on disk right now — `vendored` is mutated as new marks are pulled in.
+let committed = Object.keys(vendored);
 
-// slug wins over title, title over alias — so "X" resolves to X, not to something aliased "X".
-const index = new Map();
-const add = (k, slug) => { if (k && !index.has(k)) index.set(k, slug); };
-for (const i of iconsData) add(key(i.slug), i.slug);
-for (const i of iconsData) add(key(i.title), i.slug);
-for (const i of iconsData) {
-  const a = i.aliases ?? {};
-  for (const n of [...(a.aka ?? []), ...(a.old ?? []), ...(a.dup ?? []).map((d) => d.title)]) add(key(n), i.slug);
+// Lookup key → slug. Seeded from what is committed, extended as new marks are pulled in.
+const lookup = new Map();
+for (const [slug, icon] of Object.entries(vendored)) {
+  for (const k of icon.keys ?? [slug]) if (!lookup.has(k)) lookup.set(k, slug);
 }
 
-const byHex = new Map(iconsData.map((i) => [i.slug, i.hex]));
+/**
+ * simple-icons, loaded lazily and only when the committed set has no answer.
+ * Not having it installed is fine — you just cannot introduce a new brand until you do.
+ */
+let pkg;
+function iconPackage() {
+  if (pkg !== undefined) return pkg;
+  try {
+    const data = require('simple-icons/icons.json');
+    const dir = path.resolve(path.dirname(require.resolve('simple-icons/icons.json')), '../icons');
 
-const iconPath = (slug) => {
-  const file = path.join(ICONS_DIR, `${slug}.svg`);
-  if (!fs.existsSync(file)) return null;
-  const d = /\sd="([^"]+)"/.exec(fs.readFileSync(file, 'utf8'));
-  return d ? d[1] : null;
-};
+    // slug wins over title, title over alias — so "X" resolves to X, not to something aliased "X".
+    const index = new Map();
+    const add = (k, slug) => { if (k && !index.has(k)) index.set(k, slug); };
+    for (const i of data) add(norm(i.slug), i.slug);
+    for (const i of data) add(norm(i.title), i.slug);
+    for (const i of data) {
+      const a = i.aliases ?? {};
+      for (const n of [...(a.aka ?? []), ...(a.old ?? []), ...(a.dup ?? []).map((d) => d.title)]) add(norm(n), i.slug);
+    }
+
+    // The package does not export its own package.json, so read it off the resolved path.
+    const manifest = JSON.parse(fs.readFileSync(path.join(path.dirname(dir), 'package.json'), 'utf8'));
+    pkg = { index, dir, bySlug: new Map(data.map((i) => [i.slug, i])), version: manifest.version };
+  } catch {
+    pkg = null;
+  }
+  return pkg;
+}
+
+let missedOffline = false;
+
+/** Resolve one normalised key to { slug, title, hex, path }, vendoring the mark on first use. */
+function findIcon(k) {
+  if (!k) return null;
+  if (lookup.has(k)) {
+    const slug = lookup.get(k);
+    return slug ? { slug, ...vendored[slug] } : null;
+  }
+
+  const p = iconPackage();
+  if (!p) { missedOffline = true; return null; }
+
+  const slug = p.index.get(k);
+  const file = slug && path.join(p.dir, `${slug}.svg`);
+  const d = file && fs.existsSync(file) && /\sd="([^"]+)"/.exec(fs.readFileSync(file, 'utf8'));
+  if (!d) { lookup.set(k, null); return null; }
+
+  vendored[slug] = {
+    title: p.bySlug.get(slug).title,
+    hex: p.bySlug.get(slug).hex,
+    // Every name that resolves here, so renaming a row later still hits the committed copy.
+    keys: [...p.index].filter(([, s]) => s === slug).map(([key]) => key).sort(),
+    path: d[1],
+  };
+  for (const key of vendored[slug].keys) if (!lookup.has(key)) lookup.set(key, slug);
+  return { slug, ...vendored[slug] };
+}
 
 // Neutral glyphs of our own, used when nothing in the trademark set matches.
 const FALLBACK = {
@@ -66,9 +119,8 @@ function resolveIcon(link) {
   } catch { /* mailto:, tel:, relative — handled below */ }
 
   for (const [raw, source] of candidates) {
-    const slug = index.get(key(raw));
-    const d = slug && iconPath(slug);
-    if (d) return { path: d, hex: `#${byHex.get(slug)}`, source, slug };
+    const icon = findIcon(norm(raw));
+    if (icon) return { path: icon.path, hex: `#${icon.hex}`, source, slug: icon.slug };
   }
 
   if (scheme === 'mailto:' || /^mail(to)?$|^e?mail$/i.test(link.name ?? '')) {
@@ -82,6 +134,33 @@ function resolveIcon(link) {
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Anything else — javascript:, data: — is left as literal text rather than linked.
+const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|[#/]|\.{1,2}\/)/i;
+
+/**
+ * The slice of Markdown a bio actually needs: [text](url), **bold**, *italic*, `code`.
+ * Everything is HTML-escaped first, so a config can never inject markup — the patterns
+ * below only ever match text that is already inert.
+ */
+function md(src) {
+  return esc(src)
+    .replace(/\[([^\]\n]+)]\(\s*([^\s)]+)\s*\)/g, (whole, text, href) => {
+      const url = href.replace(/&amp;/g, '&');
+      if (!SAFE_HREF.test(url)) return whole;
+      const external = /^https?:/i.test(url);
+      return `<a href="${esc(url)}"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text}</a>`;
+    })
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+}
+
+/** The same text with the markup dropped, for <title> and social cards. */
+const plain = (s) =>
+  String(s ?? '')
+    .replace(/\[([^\]\n]+)]\(\s*[^\s)]+\s*\)/g, '$1')
+    .replace(/[*`]/g, '');
 
 /**
  * Brand hexes are picked for white backgrounds — GitHub's #181717 is invisible on
@@ -143,14 +222,16 @@ function render(cfg) {
   const theme = { accent: '#ffffff', brandColors: true, keys: true, radius: '14px', font: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif", ...(cfg.theme ?? {}) };
   const meta = cfg.meta ?? {};
   const title = meta.title || cfg.name || 'Links';
-  const description = meta.description || (cfg.bio ?? '').replace(/\s+/g, ' ').trim();
+  const description = meta.description || plain(cfg.bio).replace(/\s+/g, ' ').trim();
 
   const report = [];
+  const used = new Set();
   const rows = cfg.links ?? [];
   const keys = theme.keys ? assignKeys(rows) : rows.map(() => null);
 
   const links = rows.map((link, i) => {
     const icon = resolveIcon(link);
+    if (icon && vendored[icon.slug]) used.add(icon.slug);
     const brand = theme.brandColors && icon?.hex ? readableOnBlack(icon.hex, theme.accent) : theme.accent;
     const key = keys[i];
     report.push({ name: link.label ?? link.name, slug: icon?.slug ?? '—', source: icon?.source ?? 'off', key });
@@ -257,6 +338,20 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
     white-space: pre-line;
   }
 
+  /* Inline markup allowed in bio and footer. A link is brighter than the text around it. */
+  .bio a, footer a {
+    color: var(--fg); text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,.25);
+    transition: color .18s ease, border-color .18s ease;
+  }
+  .bio a:hover { border-color: var(--accent); }
+  .bio strong, footer strong { color: rgba(255,255,255,.8); font-weight: 600; }
+  .bio code, footer code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
+    padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,.07);
+  }
+  .bio a:focus-visible, footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
   .links { display: grid; gap: 12px; }
   .link {
     --brand: var(--accent);
@@ -313,8 +408,8 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
     align-self: flex-end; padding-top: 32px;
     font-size: 12px; letter-spacing: .01em; color: rgba(255,255,255,.28);
   }
-  footer a { color: inherit; text-decoration: none; }
-  footer a:hover { color: rgba(255,255,255,.55); }
+  footer a { color: inherit; border-bottom-color: rgba(255,255,255,.2); }
+  footer a:hover { color: rgba(255,255,255,.55); border-bottom-color: rgba(255,255,255,.35); }
 
   @media (max-width: 520px) { footer { align-self: center; } }
   @media (prefers-reduced-motion: reduce) {
@@ -327,15 +422,15 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
   <main>
     ${avatar}
     <h1>${esc(cfg.name ?? '')}</h1>
-${cfg.bio ? `    <p class="bio">${esc(cfg.bio)}</p>\n` : ''}    <nav class="links">
+${cfg.bio ? `    <p class="bio">${md(cfg.bio)}</p>\n` : ''}    <nav class="links">
 ${links}
     </nav>
   </main>
-${cfg.footer ? `  <footer>${esc(cfg.footer)}</footer>\n` : ''}${script}</body>
+${cfg.footer ? `  <footer>${md(cfg.footer)}</footer>\n` : ''}${script}</body>
 </html>
 `;
 
-  return { html, report };
+  return { html, report, used };
 }
 
 /* ------------------------------------------------------------------- build */
@@ -355,13 +450,42 @@ function validate(cfg) {
   }
 }
 
+/**
+ * Rewrite icons/icons.json to exactly the marks this config uses, so the file stays
+ * small and the repo carries no marks it no longer shows. Untouched when nothing changed.
+ */
+function writeIcons(used) {
+  const icons = {};
+  for (const slug of [...used].sort()) icons[slug] = vendored[slug];
+
+  const file = {
+    _: 'Brand marks from Simple Icons, committed so builds and deploys need no icon dependency. Rewritten by every build — do not edit by hand.',
+    source: 'https://github.com/simple-icons/simple-icons',
+    license: 'CC0-1.0',
+    version: iconPackage()?.version ?? store.version ?? null,
+    icons,
+  };
+
+  const json = JSON.stringify(file, null, 2) + '\n';
+  if (fs.existsSync(ICONS) && fs.readFileSync(ICONS, 'utf8') === json) return null;
+
+  fs.mkdirSync(path.dirname(ICONS), { recursive: true });
+  fs.writeFileSync(ICONS, json);
+
+  const added = Object.keys(icons).filter((s) => !committed.includes(s));
+  const dropped = committed.filter((s) => !(s in icons));
+  committed = Object.keys(icons);
+  return { size: Buffer.byteLength(json), count: Object.keys(icons).length, added, dropped };
+}
+
 function build() {
   const cfg = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
   validate(cfg);
-  const { html, report } = render(cfg);
+  const { html, report, used } = render(cfg);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  const icons = writeIcons(used);
 
   const pad = Math.max(...report.map((r) => r.name?.length ?? 0), 4);
   console.log(`\n  midnight → dist/index.html  (${(Buffer.byteLength(html) / 1024).toFixed(1)} kB)\n`);
@@ -376,6 +500,15 @@ function build() {
   for (const r of report) {
     const hint = r.key ? `[${r.key}]` : '[ ]';
     console.log(`  ${'●○○'[['icon', 'name', 'url'].includes(r.source) ? 0 : r.source === 'builtin' ? 1 : 2]} ${hint} ${String(r.name).padEnd(pad)}  ${String(r.slug).padEnd(12)}${note[r.source]}`);
+  }
+
+  if (icons) {
+    const change = [...icons.added.map((s) => `+${s}`), ...icons.dropped.map((s) => `−${s}`)].join(' ');
+    console.log(`\n  icons/icons.json → ${icons.count} mark${icons.count === 1 ? '' : 's'}, ${(icons.size / 1024).toFixed(1)} kB${change ? `  (${change})` : ''}  — commit this`);
+  }
+  if (missedOffline) {
+    console.log('\n  ! A row needed a brand mark that is not committed yet, and simple-icons is not');
+    console.log('    installed. Run `pnpm install` and build again to pull it in.');
   }
   console.log('');
 }

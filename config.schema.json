@@ -6,12 +6,12 @@
   "properties": {
     "$schema": { "type": "string" },
     "name": { "type": "string", "description": "Display name shown under the avatar." },
-    "bio": { "type": "string", "description": "Short description. \\n starts a new line." },
+    "bio": { "type": "string", "description": "Short description. \\n starts a new line. Supports [text](url), **bold**, *italic* and `code`." },
     "avatar": {
       "type": ["string", "null"],
       "description": "Image URL or a path to a file in dist/. Omit to render initials instead."
     },
-    "footer": { "type": "string", "description": "Small bottom-right line. Omit to hide." },
+    "footer": { "type": "string", "description": "Small bottom-right line. Same inline Markdown as \"bio\". Omit to hide." },
     "meta": {
       "type": "object",
       "description": "SEO / social card metadata.",

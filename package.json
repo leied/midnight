@@ -11,10 +11,8 @@
     "deploy": "node build.mjs && wrangler deploy",
     "check": "node build.mjs && wrangler deploy --dry-run"
   },
-  "dependencies": {
-    "simple-icons": "^16.29.0"
-  },
   "devDependencies": {
+    "simple-icons": "^16.29.0",
     "wrangler": "^4.129.0"
   }
 }

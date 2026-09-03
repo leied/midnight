@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main, master]
-    paths: ['config.json', 'build.mjs', 'wrangler.jsonc', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy.yml']
+    paths: ['config.json', 'icons/icons.json', 'build.mjs', 'wrangler.jsonc', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy.yml']
   workflow_dispatch:
 
 jobs:

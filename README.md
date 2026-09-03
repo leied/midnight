@@ -4,11 +4,14 @@ A minimal AMOLED link-in-bio page. Everything you can configure lives in `config
 `build.mjs` turns it into one static HTML file and `wrangler` puts it on Cloudflare.
 
 - **True black** (`#000`) — real pixels off on OLED.
-- **One ~10 kB file, no requests.** CSS and every icon inlined; the only JavaScript is 413 bytes
+- **One ~11 kB file, no requests.** CSS and every icon inlined; the only JavaScript is 413 bytes
   for the keyboard shortcuts.
 - **Brand icons resolve themselves.** Name a link `GitHub` and it gets the GitHub mark, from
-  [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0-1.0, 3,400+ brands).
+  [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0-1.0, 3,400+ brands) — and the
+  marks you use are committed to `icons/`, so builds need no dependency.
 - **Keyboard shortcuts.** Every row gets a letter; pressing it opens that link.
+- **Markdown in the text.** `[links](https://…)`, `**bold**`, `*italic*` and `` `code` `` in the
+  bio and footer.
 
 ## Quick start
 
@@ -33,10 +36,12 @@ While editing, run `pnpm watch` in a second terminal to rebuild on every save.
 There is no framework and no runtime — `build.mjs` is one script that runs at build time:
 
 1. Reads `config.json` and validates it (a missing `url` fails the build with the row that broke).
-2. For each link, picks an icon and reads that brand's `<path d="…">` straight out of
-   `node_modules/simple-icons/icons/<slug>.svg`.
+2. For each link, picks an icon and takes that brand's `<path d="…">` from `icons/icons.json`.
+   A brand that isn't in there yet is copied in from `node_modules/simple-icons` and written back,
+   so the next build — and CI — no longer needs the package.
 3. Converts the brand colour to something readable on black, and assigns a keyboard key.
-4. Fills all of that into a template string — the HTML, the CSS and the icons are one document —
+4. Renders the bio and footer through a small inline-Markdown pass.
+5. Fills all of that into a template string — the HTML, the CSS and the icons are one document —
    and writes `dist/index.html`.
 
 `wrangler` then uploads `dist/` as a static-assets Worker. Nothing is fetched at page load, and
@@ -48,9 +53,9 @@ rebuilding.
 ```jsonc
 {
   "name": "Jane Doe",
-  "bio": "Quick description.\nA \\n starts a new line.",
+  "bio": "Quick description.\nA \\n starts a new line, and [links](https://x.com) work.",
   "avatar": null,                       // image URL, or null for initials
-  "footer": "Powered by Midnight",      // omit to hide
+  "footer": "Powered by **Midnight**",   // omit to hide
 
   "meta": {
     "title": "Jane Doe",                // <title> and social card title
@@ -79,6 +84,25 @@ rebuilding.
 
 `config.schema.json` is wired up via `$schema`, so editors autocomplete and validate these fields.
 
+### Markdown in `bio` and `footer`
+
+Those two fields take a small slice of inline Markdown:
+
+| | |
+|---|---|
+| `[text](https://example.com)` | link — external ones get `target="_blank" rel="noopener"` |
+| `**text**` | bold |
+| `*text*` | italic |
+| `` `text` `` | code |
+
+`mailto:`, `tel:`, `/paths` and `#anchors` are valid link targets too. Anything else — a
+`javascript:` or `data:` URL — is left on the page as plain text rather than linked, and the
+whole string is HTML-escaped before any of this runs, so the config can't inject markup. Block
+Markdown (headings, lists) is not supported; `\n` still just starts a new line.
+
+The social-card description falls back to your bio with the markup stripped, so links don't leak
+into `<meta name="description">`.
+
 ### How icons are chosen
 
 For each link, in order:
@@ -90,6 +114,8 @@ For each link, in order:
 3. The link's domain — `https://youtube.com/@jane` finds YouTube even if you named the row "Watch".
 4. Otherwise a neutral built-in glyph: an envelope for `mailto:`, a handset for `tel:`,
    an arrow for everything else.
+
+Whatever it picks is cached into `icons/icons.json` and committed — see [icons/](icons/).
 
 Every build prints what it picked, so a wrong icon is obvious before you deploy:
 
@@ -113,6 +139,22 @@ Pin one with `"key": "e"`, switch it off for a single row with `"key": false`, o
 feature entirely with `"keys": false` in `theme` (which also stops the script being written).
 Combinations with Ctrl/Cmd/Alt are ignored, so browser shortcuts keep working, and the hints
 are hidden on touch devices where there is no keyboard.
+
+## The vendored icons
+
+`icons/icons.json` holds only the marks the current config uses — the path, the brand colour, and
+the names that resolve to it. A build adds anything new and drops anything you stopped using, then
+tells you it changed:
+
+```
+  icons/icons.json → 4 marks, 4.0 kB  (+github +instagram +x +youtube)  — commit this
+```
+
+Commit it alongside `config.json`. The point is that nothing else in the pipeline needs the icon
+set: `simple-icons` is 15 MB of SVGs and a devDependency, consulted only when you name a brand that
+isn't committed yet. CI, `pnpm build` on a fresh clone, and the deploy itself all work without it —
+you can delete it from `package.json` entirely once your links have settled, and the build will
+tell you if you ever need it back.
 
 ## Deploying from GitHub
 
@@ -150,7 +192,8 @@ Then `pnpm run deploy`, and set `meta.url` to the same address.
 
 ## Licensing of the icons
 
-Icons come from Simple Icons and are **CC0-1.0** — free to use, no attribution required. The brands
-themselves are still trademarks of their respective owners: use a company's mark to link to that
-company, and follow their brand guidelines if you do anything more. See Simple Icons'
+Icons come from Simple Icons and are **CC0-1.0** — public domain, no attribution required, and
+redistribution is explicitly allowed, which is what makes committing them to this repo fine. The
+brands themselves are still trademarks of their respective owners: use a company's mark to link to
+that company, and follow their brand guidelines if you do anything more. See Simple Icons'
 [legal disclaimer](https://github.com/simple-icons/simple-icons/blob/develop/DISCLAIMER.md).

@@ -2,7 +2,7 @@
   "$schema": "./config.schema.json",
 
   "name": "Jane Doe",
-  "bio": "Quick description. Quick description. Quick description.\nSecond line if you want one.",
+  "bio": "Quick description. Quick description. Quick description.\nSecond line, with a [link](https://example.com) in it.",
   "avatar": null,
 
   "meta": {
@@ -26,5 +26,5 @@
     { "name": "Instagram", "url": "https://instagram.com/janedoe" }
   ],
 
-  "footer": "Powered by Midnight"
+  "footer": "Powered by **Midnight**"
 }

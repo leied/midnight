@@ -7,11 +7,10 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       simple-icons:
         specifier: ^16.29.0
         version: 16.29.0
-    devDependencies:
       wrangler:
         specifier: ^4.129.0
         version: 4.129.0
