@@ -169,7 +169,9 @@ tell you if you ever need it back.
 
 ## Deploying from GitHub
 
-`.github/workflows/deploy.yml` deploys on every push to `main`. Add two repository secrets:
+`.github/workflows/deploy.yml` builds `config.json` into `dist/index.html` and deploys it on every
+push to `main` or `master` (or when manually run from the Actions tab). The job summary includes
+the deployed URL. Add two repository secrets:
 
 - `CLOUDFLARE_API_TOKEN` — an API token with the **Edit Cloudflare Workers** template.
 - `CLOUDFLARE_ACCOUNT_ID` — from the Workers overview page in the dashboard.

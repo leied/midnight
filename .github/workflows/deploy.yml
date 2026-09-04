@@ -1,10 +1,20 @@
-name: Deploy
+name: Build and deploy
 
 on:
   push:
     branches: [main, master]
     paths: ['config.json', 'icons/icons.json', 'build.mjs', 'wrangler.jsonc', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy.yml']
   workflow_dispatch:
+
+# The deploy only needs to read this repository. Cloudflare authentication is supplied
+# through repository secrets, never committed to this workflow.
+permissions:
+  contents: read
+
+# A newer push supersedes an older build; do not let two versions race to production.
+concurrency:
+  group: midnight-production
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -16,10 +26,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - uses: cloudflare/wrangler-action@v3
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate the static site
+        run: pnpm build
+      - name: Deploy generated site to Cloudflare Workers
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
           packageManager: pnpm
+      - name: Add deployment URL to the job summary
+        run: echo "### Deployed to ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"
