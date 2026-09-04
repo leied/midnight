@@ -51,7 +51,7 @@ rebuilding.
 
 ## config.json
 
-```jsonc
+```json
 {
   "name": "Jane Doe",
   "bio": "Quick description.\nA \\n starts a new line, and [links](https://x.com) work.",
@@ -63,13 +63,13 @@ rebuilding.
     "description": "Links for Jane.",
     "url": "https://links.example.com", // canonical URL, once you have one
     "themeColor": "#000000",
-    "image": null, // optional external image; overrides the generated sharing card
+    "image": null,
     "socialCard": {
       "instance": "bio.example.com",
-      "description": "Short copy for social sharing", // 52 characters maximum; bio is used if omitted
+      "description": "Short copy for social sharing",
       "showAvatar": true,
-      "ribbon": "links", // "links" uses link colors; "custom" uses ribbonColors; "none" hides it
-      "ribbonColors": ["#ff6b6b", "#4dabf7"] // used only by "custom"
+      "ribbon": "links",
+      "ribbonColors": ["#ff6b6b", "#4dabf7"]
     }
   },
 

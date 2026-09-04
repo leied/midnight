@@ -137,36 +137,6 @@ function resolveIcon(link) {
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-/** JSON with // or /* ... *\/ comments, so the human-facing config can explain choices. */
-function parseJsonc(source) {
-  let result = '', inString = false, escaped = false;
-  for (let i = 0; i < source.length; i += 1) {
-    const char = source[i], next = source[i + 1];
-    if (inString) {
-      result += char;
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') { inString = true; result += char; continue; }
-    if (char === '/' && next === '/') {
-      i = source.indexOf('\n', i + 2);
-      if (i === -1) break;
-      result += '\n';
-      continue;
-    }
-    if (char === '/' && next === '*') {
-      const end = source.indexOf('*/', i + 2);
-      if (end === -1) throw new Error('config.json has an unclosed block comment.');
-      i = end + 1;
-      continue;
-    }
-    result += char;
-  }
-  return JSON.parse(result);
-}
-
 // Anything else — javascript:, data: — is left as literal text rather than linked.
 const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|[#/]|\.{1,2}\/)/i;
 
@@ -628,7 +598,7 @@ function writeIcons(used) {
 }
 
 async function build() {
-  const cfg = parseJsonc(fs.readFileSync(CONFIG, 'utf8'));
+  const cfg = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
   validate(cfg);
   const socialImage = await writeSocialCard(cfg);
   const { html, report, used } = render(cfg, socialImage);

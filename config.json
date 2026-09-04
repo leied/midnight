@@ -16,7 +16,7 @@
       "instance": "bio.example.com",
       "description": "Quick description for social sharing.",
       "showAvatar": true,
-      "ribbon": "links", // "links" uses your link colors; "custom" uses ribbonColors; "none" hides it
+      "ribbon": "links",
       "ribbonColors": ["#ff6b6b", "#4dabf7", "#ffffff", "#f08c00"]
     }
   },
