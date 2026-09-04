@@ -10,6 +10,7 @@ A minimal AMOLED link-in-bio page. Everything you can configure lives in `config
   [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0-1.0, 3,400+ brands) — and the
   marks you use are committed to `icons/`, so builds need no dependency.
 - **Keyboard shortcuts.** Every row gets a letter; pressing it opens that link.
+- **Tactile links.** Hovering creates a crisp offset shadow; pressing settles the row into it.
 - **Markdown in the text.** `[links](https://…)`, `**bold**`, `*italic*` and `` `code` `` in the
   bio and footer.
 
@@ -61,23 +62,25 @@ rebuilding.
     "title": "Jane Doe",                // <title> and social card title
     "description": "Links for Jane.",
     "url": "https://links.example.com", // canonical URL, once you have one
-    "themeColor": "#000000"
+    "themeColor": "#000000",
+    "image": "https://links.example.com/social-card.png" // optional 1200×630 sharing image
   },
 
   "theme": {
     "accent": "#ffffff",                // focus rings, icons with no usable brand colour
     "brandColors": true,                // tint each row with its brand colour on hover
     "keys": true,                       // keyboard shortcuts
-    "radius": "14px",
+    "hideKeyHintsOnMobile": true,       // hide shortcut badges on touch devices
+    "radius": "999px",                  // pill-shaped link rows
     "font": "ui-sans-serif, -apple-system, …"
   },
 
   "links": [
-    { "name": "GitHub",  "url": "https://github.com/janedoe" },
-    { "name": "YouTube", "url": "https://youtube.com/@janedoe", "label": "My channel" },
+    { "name": "GitHub",  "url": "https://github.com/janedoe", "group": "Find me" },
+    { "name": "YouTube", "url": "https://youtube.com/@janedoe", "label": "My channel", "group": "Find me" },
     { "name": "Shop",    "url": "https://example.com", "icon": "shopify" },
     { "name": "Email",   "url": "mailto:jane@example.com", "key": "e" },
-    { "name": "Website", "url": "https://example.com", "icon": false, "key": false }
+    { "name": "Website", "url": "https://example.com", "icon": false, "key": false, "group": "Contact" }
   ]
 }
 ```
@@ -101,7 +104,14 @@ whole string is HTML-escaped before any of this runs, so the config can't inject
 Markdown (headings, lists) is not supported; `\n` still just starts a new line.
 
 The social-card description falls back to your bio with the markup stripped, so links don't leak
-into `<meta name="description">`.
+into `<meta name="description">`. Set `meta.image` to an absolute 1200×630 image URL for a rich
+sharing card; if it is omitted, the page uses `avatar` when one is set.
+
+### Link groups
+
+Add the same `group` value to adjacent rows to place a quiet heading above them. Grouping is
+optional, so ungrouped rows continue to render exactly as before. Keep each group together in the
+`links` array; a heading is rendered whenever the group name changes.
 
 ### How icons are chosen
 
@@ -137,8 +147,9 @@ automatically — the first letter of the row's name that nothing else has claim
 
 Pin one with `"key": "e"`, switch it off for a single row with `"key": false`, or drop the
 feature entirely with `"keys": false` in `theme` (which also stops the script being written).
-Combinations with Ctrl/Cmd/Alt are ignored, so browser shortcuts keep working, and the hints
-are hidden on touch devices where there is no keyboard.
+Combinations with Ctrl/Cmd/Alt are ignored, so browser shortcuts keep working. Shortcut hints are
+hidden on touch devices by default; set `theme.hideKeyHintsOnMobile` to `false` if you want to
+show them there too.
 
 ## The vendored icons
 

@@ -20,6 +20,7 @@
         "description": { "type": "string" },
         "url": { "type": "string", "description": "Canonical URL of the deployed page." },
         "themeColor": { "type": "string" },
+        "image": { "type": ["string", "null"], "description": "1200×630 social-card image URL. Falls back to the avatar when omitted." },
         "lang": { "type": "string", "default": "en" }
       }
     },
@@ -29,8 +30,9 @@
         "accent": { "type": "string", "description": "Colour for focus rings and non-brand icons.", "default": "#ffffff" },
         "brandColors": { "type": "boolean", "description": "Tint each row with its brand colour on hover.", "default": true },
         "font": { "type": "string", "description": "CSS font-family stack." },
-        "radius": { "type": "string", "description": "Corner radius of the link rows.", "default": "14px" },
-        "keys": { "type": "boolean", "description": "Keyboard shortcuts: show a hint on each row and jump when that key is pressed.", "default": true }
+        "radius": { "type": "string", "description": "Corner radius of the link rows. Use 999px for pill-shaped rows.", "default": "999px" },
+        "keys": { "type": "boolean", "description": "Keyboard shortcuts: show a hint on each row and jump when that key is pressed.", "default": true },
+        "hideKeyHintsOnMobile": { "type": "boolean", "description": "Hide desktop keyboard shortcut hints on touch/coarse-pointer devices.", "default": true }
       }
     },
     "links": {
@@ -43,6 +45,7 @@
           "name": { "type": "string", "description": "Row text, and what the icon is matched against (e.g. \"GitHub\")." },
           "url": { "type": "string", "description": "https://, mailto: or tel: target." },
           "label": { "type": "string", "description": "Override the row text while keeping \"name\" for icon matching." },
+          "group": { "type": "string", "description": "Optional heading that groups this link with adjacent links using the same name." },
           "icon": {
             "type": ["string", "boolean"],
             "description": "Simple Icons slug to force (e.g. \"x\"), or false for no icon."

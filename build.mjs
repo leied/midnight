@@ -219,7 +219,7 @@ function assignKeys(links) {
 /* ------------------------------------------------------------------ render */
 
 function render(cfg) {
-  const theme = { accent: '#ffffff', brandColors: true, keys: true, radius: '14px', font: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif", ...(cfg.theme ?? {}) };
+  const theme = { accent: '#ffffff', brandColors: true, keys: true, hideKeyHintsOnMobile: true, radius: '999px', font: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif", ...(cfg.theme ?? {}) };
   const meta = cfg.meta ?? {};
   const title = meta.title || cfg.name || 'Links';
   const description = meta.description || plain(cfg.bio).replace(/\s+/g, ' ').trim();
@@ -229,6 +229,7 @@ function render(cfg) {
   const rows = cfg.links ?? [];
   const keys = theme.keys ? assignKeys(rows) : rows.map(() => null);
 
+  let previousGroup;
   const links = rows.map((link, i) => {
     const icon = resolveIcon(link);
     if (icon && vendored[icon.slug]) used.add(icon.slug);
@@ -237,7 +238,12 @@ function render(cfg) {
     report.push({ name: link.label ?? link.name, slug: icon?.slug ?? '—', source: icon?.source ?? 'off', key });
 
     const external = /^https?:/i.test(link.url);
-    return `      <a class="link" href="${esc(link.url)}"${theme.brandColors ? ` style="--brand:${esc(brand)}"` : ''}${
+    const group = link.group?.trim();
+    const groupHeading = group && group !== previousGroup
+      ? `      <h2 class="group-heading">${esc(group)}</h2>\n`
+      : '';
+    previousGroup = group;
+    return `${groupHeading}      <a class="link" href="${esc(link.url)}"${theme.brandColors ? ` style="--brand:${esc(brand)}"` : ''}${
       external ? ' target="_blank" rel="noopener noreferrer"' : ''
     }${key ? ` data-key="${esc(key)}" aria-keyshortcuts="${esc(key)}"` : ''}>${
       icon
@@ -278,6 +284,8 @@ function render(cfg) {
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#000"/><text x="32" y="43" font-family="sans-serif" font-size="30" font-weight="600" fill="${theme.accent}" text-anchor="middle">${initials(cfg.name)}</text></svg>`,
     )}`;
 
+  const socialImage = meta.image || cfg.avatar;
+  const twitterCard = socialImage ? 'summary_large_image' : 'summary';
   const html = `<!doctype html>
 <html lang="${esc(meta.lang ?? 'en')}">
 <head>
@@ -290,7 +298,7 @@ function render(cfg) {
 ${meta.url ? `<link rel="canonical" href="${esc(meta.url)}">\n` : ''}<meta property="og:type" content="profile">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
-${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.avatar ? `<meta property="og:image" content="${esc(cfg.avatar)}">\n` : ''}<meta name="twitter:card" content="summary">
+${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${socialImage ? `<meta property="og:image" content="${esc(socialImage)}">\n<meta name="twitter:image" content="${esc(socialImage)}">\n` : ''}<meta name="twitter:card" content="${twitterCard}">
 <link rel="icon" href="${favicon}">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
@@ -353,6 +361,12 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
   .bio a:focus-visible, footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
   .links { display: grid; gap: 12px; }
+  .group-heading {
+    margin: 18px 0 0; padding: 0 4px;
+    color: var(--muted); font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-align: left; text-transform: uppercase;
+  }
+  .group-heading:first-child { margin-top: 0; }
   .link {
     --brand: var(--accent);
     position: relative;
@@ -364,7 +378,8 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
     color: inherit; text-decoration: none;
     font-size: 15.5px; font-weight: 500; letter-spacing: -.01em;
     background: transparent;
-    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+    /* A crisp, physical offset rather than a soft floating card. */
+    transition: border-color .14s ease, background-color .14s ease, transform .14s ease, box-shadow .14s ease;
   }
   .label { line-height: 1.3; }
   .icon {
@@ -384,11 +399,12 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
     transition: color .18s ease, border-color .18s ease;
   }
   /* A shortcut hint is noise without a keyboard to press. */
-  @media (hover: none), (pointer: coarse) { .key { display: none; } }
+  ${theme.hideKeyHintsOnMobile ? '@media (hover: none), (pointer: coarse) { .key { display: none; } }' : ''}
   .link:hover, .link:focus-visible {
-    border-color: color-mix(in srgb, var(--brand) 42%, transparent);
-    background: rgba(255,255,255,.035);
-    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.82);
+    background: rgba(255,255,255,.055);
+    transform: translate(-4px, -4px);
+    box-shadow: 7px 7px 0 var(--brand);
   }
   .link:hover .icon, .link:focus-visible .icon { opacity: 1; fill: var(--brand); }
   .link:hover .key, .link:focus-visible .key {
@@ -402,7 +418,12 @@ ${meta.url ? `<meta property="og:url" content="${esc(meta.url)}">\n` : ''}${cfg.
   }
   .link.hit .icon { opacity: 1; fill: var(--brand); }
   .link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
-  .link:active { transform: translateY(0); background: rgba(255,255,255,.06); }
+  .link:active {
+    transform: translate(2px, 2px);
+    background: rgba(255,255,255,.08);
+    box-shadow: 1px 1px 0 var(--brand);
+    transition-duration: 45ms;
+  }
 
   footer {
     align-self: flex-end; padding-top: 32px;
