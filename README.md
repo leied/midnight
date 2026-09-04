@@ -63,7 +63,14 @@ rebuilding.
     "description": "Links for Jane.",
     "url": "https://links.example.com", // canonical URL, once you have one
     "themeColor": "#000000",
-    "image": "https://links.example.com/social-card.png" // optional 1200×630 sharing image
+    "image": null, // optional external image; overrides the generated sharing card
+    "socialCard": {
+      "instance": "bio.example.com",
+      "description": "Short copy for social sharing", // 52 characters maximum; bio is used if omitted
+      "showAvatar": true,
+      "ribbon": "links", // "links" uses link colors; "custom" uses ribbonColors; "none" hides it
+      "ribbonColors": ["#ff6b6b", "#4dabf7"] // used only by "custom"
+    }
   },
 
   "theme": {
@@ -72,7 +79,7 @@ rebuilding.
     "keys": true,                       // keyboard shortcuts
     "hideKeyHintsOnMobile": true,       // hide shortcut badges on touch devices
     "radius": "999px",                  // pill-shaped link rows
-    "font": "ui-sans-serif, -apple-system, …"
+    "font": "Roboto, Arial, sans-serif"
   },
 
   "links": [
@@ -104,8 +111,12 @@ whole string is HTML-escaped before any of this runs, so the config can't inject
 Markdown (headings, lists) is not supported; `\n` still just starts a new line.
 
 The social-card description falls back to your bio with the markup stripped, so links don't leak
-into `<meta name="description">`. Set `meta.image` to an absolute 1200×630 image URL for a rich
-sharing card; if it is omitted, the page uses `avatar` when one is set.
+into `<meta name="description">`. Every build creates `dist/social-card.png`: a 1200×630 Roboto
+card with your instance name, profile name, card-only description and (when present) avatar. The
+description has a 52-character limit and falls back to the bio when omitted. Its URL is derived from
+`meta.url`. The bottom ribbon can use brand colors from your links (`"links"`), an explicit list
+of hex values (`"custom"` plus `ribbonColors`), or be removed (`"none"`). Set `meta.image` to an
+absolute URL only when you want to override this generated card.
 
 ### Link groups
 

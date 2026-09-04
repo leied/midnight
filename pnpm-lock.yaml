@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      sharp:
+        specifier: ^0.35.2
+        version: 0.35.2
       simple-icons:
         specifier: ^16.29.0
         version: 16.29.0

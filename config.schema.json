@@ -20,7 +20,19 @@
         "description": { "type": "string" },
         "url": { "type": "string", "description": "Canonical URL of the deployed page." },
         "themeColor": { "type": "string" },
-        "image": { "type": ["string", "null"], "description": "1200×630 social-card image URL. Falls back to the avatar when omitted." },
+        "image": { "type": ["string", "null"], "description": "Optional external 1200×630 social-card image URL. Overrides the generated card when set." },
+        "socialCard": {
+          "type": "object",
+          "description": "Settings for the generated 1200×630 social-card PNG.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "instance": { "type": "string", "description": "Small site name displayed in the card's upper-left. Defaults to the canonical URL hostname." },
+            "description": { "type": "string", "maxLength": 52, "description": "Card-only description. Falls back to bio when omitted; limited to 52 characters to stay on one line." },
+            "showAvatar": { "type": "boolean", "description": "Show the configured avatar in the card's upper-right.", "default": true },
+            "ribbon": { "type": "string", "enum": ["links", "custom", "none"], "description": "Bottom color ribbon: resolved social-link colors, custom colors, or none.", "default": "links" },
+            "ribbonColors": { "type": "array", "items": { "type": "string" }, "description": "Hex colors used when ribbon is custom." }
+          }
+        },
         "lang": { "type": "string", "default": "en" }
       }
     },
@@ -29,7 +41,7 @@
       "properties": {
         "accent": { "type": "string", "description": "Colour for focus rings and non-brand icons.", "default": "#ffffff" },
         "brandColors": { "type": "boolean", "description": "Tint each row with its brand colour on hover.", "default": true },
-        "font": { "type": "string", "description": "CSS font-family stack." },
+        "font": { "type": "string", "description": "CSS font-family stack.", "default": "Roboto, Arial, sans-serif" },
         "radius": { "type": "string", "description": "Corner radius of the link rows. Use 999px for pill-shaped rows.", "default": "999px" },
         "keys": { "type": "boolean", "description": "Keyboard shortcuts: show a hint on each row and jump when that key is pressed.", "default": true },
         "hideKeyHintsOnMobile": { "type": "boolean", "description": "Hide desktop keyboard shortcut hints on touch/coarse-pointer devices.", "default": true }

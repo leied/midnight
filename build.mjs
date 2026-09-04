@@ -9,12 +9,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 
 const require = createRequire(import.meta.url);
 const root = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(root, 'dist');
 const CONFIG = path.join(root, 'config.json');
 const ICONS = path.join(root, 'icons', 'icons.json');
+const SOCIAL_CARD = path.join(OUT_DIR, 'social-card.png');
 
 /* ---------------------------------------------------------------- icon set */
 
@@ -135,6 +137,36 @@ function resolveIcon(link) {
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+/** JSON with // or /* ... *\/ comments, so the human-facing config can explain choices. */
+function parseJsonc(source) {
+  let result = '', inString = false, escaped = false;
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i], next = source[i + 1];
+    if (inString) {
+      result += char;
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') { inString = true; result += char; continue; }
+    if (char === '/' && next === '/') {
+      i = source.indexOf('\n', i + 2);
+      if (i === -1) break;
+      result += '\n';
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      if (end === -1) throw new Error('config.json has an unclosed block comment.');
+      i = end + 1;
+      continue;
+    }
+    result += char;
+  }
+  return JSON.parse(result);
+}
+
 // Anything else — javascript:, data: — is left as literal text rather than linked.
 const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|[#/]|\.{1,2}\/)/i;
 
@@ -191,6 +223,98 @@ const initials = (name) =>
   String(name ?? '')
     .trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase() || '·';
 
+const CARD_COLOR = /^#[0-9a-f]{6}$/i;
+const cardColor = (value) => CARD_COLOR.test(value ?? '') ? value : null;
+const truncate = (value, limit) => {
+  const text = String(value ?? '');
+  return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
+};
+
+function socialCardOptions(cfg) {
+  const card = {
+    enabled: true,
+    instance: '',
+    showAvatar: true,
+    ribbon: 'links',
+    ribbonColors: [],
+    ...(cfg.meta?.socialCard ?? {}),
+  };
+  if (!card.instance && cfg.meta?.url) {
+    try { card.instance = new URL(cfg.meta.url).hostname; } catch { /* keep it empty */ }
+  }
+  return card;
+}
+
+function publicAssetUrl(metaUrl, filename) {
+  try { return new URL(filename, metaUrl).href; } catch { return null; }
+}
+
+function cardRibbonColors(cfg, card) {
+  if (card.ribbon === 'none') return [];
+  if (card.ribbon === 'custom') return (card.ribbonColors ?? []).map(cardColor).filter(Boolean);
+
+  const accent = cfg.theme?.accent ?? '#ffffff';
+  return (cfg.links ?? []).map((link) => cardColor(resolveIcon(link)?.hex) ?? accent).filter(cardColor);
+}
+
+async function cardAvatar(avatar) {
+  if (!avatar) return null;
+  try {
+    let image;
+    if (/^https?:\/\//i.test(avatar)) {
+      const response = await fetch(avatar, { signal: AbortSignal.timeout(8000) });
+      const type = response.headers.get('content-type') ?? '';
+      const size = Number(response.headers.get('content-length') ?? 0);
+      if (!response.ok || !type.startsWith('image/') || size > 5_000_000) throw new Error('not a usable image');
+      image = Buffer.from(await response.arrayBuffer());
+      if (image.length > 5_000_000) throw new Error('image is too large');
+    } else {
+      const local = path.resolve(OUT_DIR, avatar.replace(/^\//, ''));
+      if (!local.startsWith(`${OUT_DIR}${path.sep}`)) throw new Error('image must be inside dist');
+      image = fs.readFileSync(local);
+    }
+    return sharp(image).resize(224, 224, { fit: 'cover' }).png().toBuffer();
+  } catch (error) {
+    console.warn(`  ! Could not add avatar to social card: ${error.message}`);
+    return null;
+  }
+}
+
+/** Build a broadly supported PNG card rather than relying on social crawlers to render SVG. */
+async function writeSocialCard(cfg) {
+  const meta = cfg.meta ?? {};
+  const card = socialCardOptions(cfg);
+  const generatedUrl = card.enabled && !meta.image ? publicAssetUrl(meta.url, 'social-card.png') : null;
+  if (!generatedUrl) return meta.image || cfg.avatar || null;
+
+  const avatar = card.showAvatar ? await cardAvatar(cfg.avatar) : null;
+  const avatarSvg = avatar
+    ? `<image x="936" y="72" width="224" height="224" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,${avatar.toString('base64')}"/>`
+    : '';
+  const colors = cardRibbonColors(cfg, card);
+  const ribbon = colors.length
+    ? colors.map((color, i) => `<rect x="${24 + (1152 * i) / colors.length}" y="600" width="${1152 / colors.length + 1}" height="6" fill="${color}"/>`).join('')
+    : '';
+  const title = truncate(cfg.name || 'Links', 48);
+  const description = truncate(plain(card.description ?? cfg.bio).replace(/\s+/g, ' ').trim(), 52);
+  const instance = truncate(card.instance, 72);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#181818"/>
+  <rect x="24" y="24" width="1152" height="582" fill="none" stroke="#d9d9d9" stroke-opacity=".75" stroke-width="2"/>
+  <g fill="#e7e7e7" font-family="Roboto, Arial, sans-serif">
+    ${instance ? `<text x="80" y="98" font-size="30" font-weight="400">${esc(instance)}</text>` : ''}
+    <text x="80" y="468" font-size="84" font-weight="700" letter-spacing="-2">${esc(title)}</text>
+    ${description ? `<text x="80" y="552" font-size="32" font-weight="400" fill="#d0d0d0">${esc(description)}</text>` : ''}
+  </g>
+  ${avatarSvg}
+  ${ribbon}
+</svg>`;
+
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(SOCIAL_CARD);
+  return generatedUrl;
+}
+
 /**
  * Give every row a keyboard shortcut: the one pinned in config, else the first
  * free letter of its name, else a digit. Returns null when the row opts out.
@@ -218,8 +342,8 @@ function assignKeys(links) {
 
 /* ------------------------------------------------------------------ render */
 
-function render(cfg) {
-  const theme = { accent: '#ffffff', brandColors: true, keys: true, hideKeyHintsOnMobile: true, radius: '999px', font: "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif", ...(cfg.theme ?? {}) };
+function render(cfg, generatedSocialImage) {
+  const theme = { accent: '#ffffff', brandColors: true, keys: true, hideKeyHintsOnMobile: true, radius: '999px', font: 'Roboto, Arial, sans-serif', ...(cfg.theme ?? {}) };
   const meta = cfg.meta ?? {};
   const title = meta.title || cfg.name || 'Links';
   const description = meta.description || plain(cfg.bio).replace(/\s+/g, ' ').trim();
@@ -281,10 +405,10 @@ function render(cfg) {
 
   const favicon =
     `data:image/svg+xml,${encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#000"/><text x="32" y="43" font-family="sans-serif" font-size="30" font-weight="600" fill="${theme.accent}" text-anchor="middle">${initials(cfg.name)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#000"/><text x="32" y="43" font-family="Roboto, Arial, sans-serif" font-size="30" font-weight="600" fill="${theme.accent}" text-anchor="middle">${initials(cfg.name)}</text></svg>`,
     )}`;
 
-  const socialImage = meta.image || cfg.avatar;
+  const socialImage = generatedSocialImage;
   const twitterCard = socialImage ? 'summary_large_image' : 'summary';
   const html = `<!doctype html>
 <html lang="${esc(meta.lang ?? 'en')}">
@@ -460,6 +584,10 @@ function validate(cfg) {
   const errors = [];
   if (!cfg.name) errors.push('"name" is required.');
   if (!Array.isArray(cfg.links) || cfg.links.length === 0) errors.push('"links" must be a non-empty array.');
+  const cardDescription = cfg.meta?.socialCard?.description;
+  if (typeof cardDescription === 'string' && cardDescription.length > 52) {
+    errors.push('"meta.socialCard.description" must be 52 characters or fewer.');
+  }
   (cfg.links ?? []).forEach((l, i) => {
     if (!l || typeof l !== 'object') return errors.push(`links[${i}] must be an object.`);
     if (!l.url) errors.push(`links[${i}] ("${l.name ?? '?'}") is missing "url".`);
@@ -499,10 +627,11 @@ function writeIcons(used) {
   return { size: Buffer.byteLength(json), count: Object.keys(icons).length, added, dropped };
 }
 
-function build() {
-  const cfg = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
+async function build() {
+  const cfg = parseJsonc(fs.readFileSync(CONFIG, 'utf8'));
   validate(cfg);
-  const { html, report, used } = render(cfg);
+  const socialImage = await writeSocialCard(cfg);
+  const { html, report, used } = render(cfg, socialImage);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
@@ -534,13 +663,16 @@ function build() {
   console.log('');
 }
 
-build();
+build().catch((error) => {
+  console.error(`\n  ${error.message}\n`);
+  process.exitCode = 1;
+});
 
 if (process.argv.includes('--watch')) {
   console.log('  watching config.json …\n');
   let t;
   fs.watch(CONFIG, () => {
     clearTimeout(t);
-    t = setTimeout(() => { try { build(); } catch (e) { console.error('  ' + e.message); } }, 60);
+    t = setTimeout(() => { build().catch((e) => console.error('  ' + e.message)); }, 60);
   });
 }
