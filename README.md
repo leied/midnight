@@ -34,7 +34,8 @@ While editing, run `pnpm watch` in a second terminal to rebuild on every save.
 
 ## How the build works
 
-There is no framework and no runtime — `build.mjs` is one script that runs at build time:
+There is no framework and no runtime. `build.mjs` runs at build time, and the page itself comes from
+`lib/render.mjs`, which takes a config and returns the HTML:
 
 1. Reads `config.json` and validates it (a missing `url` fails the build with the row that broke).
 2. For each link, picks an icon and takes that brand's `<path d="…">` from `icons/icons.json`.
@@ -48,6 +49,10 @@ There is no framework and no runtime — `build.mjs` is one script that runs at 
 `wrangler` then uploads `dist/` as a static-assets Worker. Nothing is fetched at page load, and
 nothing is computed in the browser, so changing anything means editing `config.json` and
 rebuilding.
+
+`lib/render.mjs` imports nothing and never touches the file system, which lets the
+[launch page](#launch-page)'s live editor run the same file in the browser. Keep it that way: the
+launch build refuses to inline it if it gains an `import`.
 
 ## config.json
 
@@ -206,6 +211,10 @@ Then `pnpm run deploy`, and set `meta.url` to the same address.
 | `pnpm dev`    | Build, then serve locally with Wrangler |
 | `pnpm check`  | Build and validate the deploy without publishing |
 | `pnpm run deploy` | Build and publish |
+| `pnpm launch` | Write the launch page to `launch/dist/index.html` |
+| `pnpm launch:watch` | Rebuild the launch page on every save |
+| `pnpm launch:dev` | Build the launch page, then serve it on port 8788 |
+| `pnpm launch:deploy` | Build the launch page and publish it as its own Worker |
 
 `deploy` needs the explicit `run` — plain `pnpm deploy` is pnpm's own workspace command.
 `npm` works too: swap `pnpm x` for `npm run x`.
@@ -213,6 +222,28 @@ Then `pnpm run deploy`, and set `meta.url` to the same address.
 > pnpm blocks dependency install scripts by default. `pnpm-workspace.yaml` allows the two that
 > need them, `esbuild` and `workerd`, both of which are wrangler's own dependencies unpacking a
 > platform binary. Without that, `pnpm install` exits non-zero and `pnpm dev` refuses to start.
+
+## Launch page
+
+`launch/` is a separate one-page site that introduces Midnight, with a live editor: change a
+`config.json` in the browser and a phone-sized preview rebuilds as you type, alongside the build log
+and the social card. The editor runs `lib/render.mjs`, the same renderer `build.mjs` uses, so the
+preview is the page a build would write. You can download it as `index.html` from there.
+
+```bash
+pnpm launch        # writes launch/dist/index.html
+pnpm launch:dev    # http://localhost:8788
+```
+
+- `launch/page.html`, `style.css` and `editor.js` are the source. `launch/build.mjs` inlines them,
+  the renderer and the icons into one file, so it also opens straight from disk.
+- `launch/demo.json` is the config the editor starts with. Figures the page quotes (page size,
+  script size, brand count) are measured from it at build time, so they stay accurate.
+- The editor can't carry every Simple Icons mark, so `BRANDS` in `launch/build.mjs` bundles 57
+  common ones. Any other brand shows the generic arrow in the preview, though a real build finds its
+  mark. Building the launch page needs `simple-icons` installed.
+- `launch/wrangler.jsonc` deploys it as a separate `midnight-launch` Worker, so it never replaces
+  your link page. The GitHub workflow doesn't deploy it.
 
 ## Licensing of the icons
 

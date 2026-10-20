@@ -9,7 +9,11 @@
     "watch": "node build.mjs --watch",
     "dev": "node build.mjs && wrangler dev",
     "deploy": "node build.mjs && wrangler deploy",
-    "check": "node build.mjs && wrangler deploy --dry-run"
+    "check": "node build.mjs && wrangler deploy --dry-run",
+    "launch": "node launch/build.mjs",
+    "launch:watch": "node launch/build.mjs --watch",
+    "launch:dev": "node launch/build.mjs && wrangler dev --config launch/wrangler.jsonc --port 8788",
+    "launch:deploy": "node launch/build.mjs && wrangler deploy --config launch/wrangler.jsonc"
   },
   "devDependencies": {
     "sharp": "^0.35.2",

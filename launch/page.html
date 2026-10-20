@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Midnight — a true-black link-in-bio page</title>
+<meta name="description" content="Midnight turns one JSON file into a single {{size}} link-in-bio page on pure black and deploys it to Cloudflare. Try it in the live editor.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Midnight">
+<meta property="og:description" content="A link-in-bio page for true-black screens. One JSON file in, one {{size}} HTML page out.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="{{favicon}}">
+<style>
+{{css}}
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div class="avatar" aria-hidden="true">M</div>
+    <h1>Midnight</h1>
+    <p class="bio">A link-in-bio page for true-black screens. One JSON file in, one {{size}} HTML page out, served by Cloudflare.</p>
+    <nav class="links" aria-label="Get started">
+      <a class="link" href="#editor" data-key="e" aria-keyshortcuts="e" style="--brand:hsl(207 92% 72%)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25Zm17.7-10.2a1 1 0 0 0 0-1.42l-2.33-2.33a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>
+        <span class="label">Try the live editor</span>
+        <kbd class="key" aria-hidden="true">e</kbd>
+      </a>
+      <a class="link" href="{{repo}}" target="_blank" rel="noopener noreferrer" data-key="g" aria-keyshortcuts="g" style="--brand:{{brand:github}}">
+        {{icon:github}}
+        <span class="label">Source on GitHub</span>
+        <kbd class="key" aria-hidden="true">g</kbd>
+      </a>
+      <a class="link" href="#start" data-key="d" aria-keyshortcuts="d" style="--brand:{{brand:cloudflare}}">
+        {{icon:cloudflare}}
+        <span class="label">Deploy your own</span>
+        <kbd class="key" aria-hidden="true">d</kbd>
+      </a>
+    </nav>
+    <p class="hero-note">This page has shortcuts too: press <kbd>e</kbd>, <kbd>g</kbd> or <kbd>d</kbd>.</p>
+  </header>
+
+  <main>
+    <section class="section" id="editor" aria-labelledby="editor-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="editor-title">Try it with your links</h2>
+          <p>This is the renderer <code>pnpm build</code> uses, running in your browser. Edit <code>config.json</code> and the page rebuilds as you type.</p>
+        </div>
+
+        <div class="studio">
+          <div class="editor-col">
+            <div class="pane">
+              <div class="pane-bar">
+                <span class="filename">config.json</span>
+                <span class="status" id="status" role="status">Checking…</span>
+                <span class="spacer"></span>
+                <button class="btn" type="button" id="copy">Copy</button>
+                <button class="btn" type="button" id="reset">Reset</button>
+              </div>
+              <div class="edits" role="group" aria-label="Quick edits">
+                <button class="chip" type="button" data-edit="accent" title="Cycle theme.accent"><span class="swatch" aria-hidden="true"></span>Accent</button>
+                <button class="chip" type="button" data-edit="pill" aria-pressed="true" title="Toggle theme.radius">Pill rows</button>
+                <button class="chip" type="button" data-edit="brandColors" aria-pressed="true" title="Toggle theme.brandColors">Brand colours</button>
+                <button class="chip" type="button" data-edit="keys" aria-pressed="true" title="Toggle theme.keys">Shortcuts</button>
+                <button class="chip" type="button" data-edit="discord" aria-pressed="false" title="Add or remove a Discord link">Discord row</button>
+              </div>
+              <div class="code-scroll">
+                <div class="code-wrap">
+                  <pre class="code" aria-hidden="true"></pre>
+                  <textarea class="code-input" id="config" rows="1" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="config.json" aria-describedby="editor-help"></textarea>
+                </div>
+              </div>
+              <pre class="log" id="log" aria-label="Build output"></pre>
+            </div>
+            <p class="help" id="editor-help">Tab indents; press Esc, then Tab, to move on. Edits are saved in this browser. The editor bundles {{bundledCount}} popular brand icons, while a real build searches all {{brandCount}} in Simple Icons.</p>
+          </div>
+
+          <div class="preview-col" id="preview">
+            <div class="preview-bar">
+              <div class="segmented" role="group" aria-label="Preview">
+                <button type="button" data-view="page" aria-pressed="true">Page</button>
+                <button type="button" data-view="card" aria-pressed="false">Social card</button>
+              </div>
+              <button class="btn" type="button" id="download">Download index.html</button>
+            </div>
+            <div class="phone" data-panel="page">
+              <div class="screen">
+                <iframe title="Preview of the page" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
+                <iframe title="Preview of the page" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
+                <noscript><p class="noscript">The live editor needs JavaScript.</p></noscript>
+              </div>
+            </div>
+            <figure class="card-view" data-panel="card" hidden>
+              <div class="card-frame" id="card"></div>
+              <figcaption id="card-note"></figcaption>
+            </figure>
+            <p class="help" id="preview-help"><span class="for-pointer">Hover a row to see its brand colour. Click into the page, then press a row’s key.</span><span class="for-touch">Tap a row to see it press, then open.</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="features-title">What it does</h2>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <div class="swatch-pair">
+                <span class="swatch-tile" style="background:#1c1c1c"></span>
+                <span class="swatch-tile swatch-tile--off"></span>
+                <span>#1c1c1c</span>
+                <span>#000</span>
+              </div>
+            </div>
+            <h3>True black</h3>
+            <p>The background is <code>#000</code>, not dark grey. OLED screens switch those pixels off, so the page melts into the bezel.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <div class="file-chip">
+                <svg viewBox="0 0 24 24"><path d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V9h5.5L13 3.5Z"/></svg>
+                <span>index.html</span>
+                <span class="faint">{{sizeExact}}</span>
+              </div>
+            </div>
+            <h3>One small file</h3>
+            <p>CSS and icons are inlined into a single page. The only script is {{scriptBytes}} bytes, for shortcuts. Nothing loads after it.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen specimen--stack" aria-hidden="true">
+              <div class="resolve"><code>"Twitter"</code><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>{{icon:x}}</div>
+              <div class="resolve"><code>youtube.com/@jane</code><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg><span style="color:{{brand:youtube}}">{{icon:youtube}}</span></div>
+            </div>
+            <h3>Icons that find themselves</h3>
+            <p>Name a row GitHub and it gets the GitHub mark. Names, aliases and domains are matched against {{brandCount}} brands.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <kbd class="keycap" data-key="e">e</kbd>
+              <kbd class="keycap" data-key="g">g</kbd>
+              <kbd class="keycap" data-key="d">d</kbd>
+            </div>
+            <h3>Keyboard shortcuts</h3>
+            <p>Every row gets a letter, and pressing it opens the link. Ctrl, Cmd and Alt combinations are left to the browser.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <div class="link link--lifted" style="--brand:{{brand:instagram}}">
+                {{icon:instagram}}
+                <span class="label">Press me</span>
+              </div>
+            </div>
+            <h3>Rows you can feel</h3>
+            <p>Hovering lifts a row onto a hard shadow in its brand colour. Pressing settles it back down.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen specimen--stack" aria-hidden="true">
+              <code class="md-source">**Bold**, *italic*, `code` and [links](…)</code>
+              <p class="md-result">{{mdSpecimen}}</p>
+            </div>
+            <h3>Markdown in your bio</h3>
+            <p>The bio and footer take links, bold, italic and code. Text is escaped first, so a config can’t inject HTML.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <div class="card-mini">{{cardSpecimen}}</div>
+            </div>
+            <h3>A social card</h3>
+            <p>Each build draws a 1200×630 PNG with your name, a short line and a ribbon of your link colours.</p>
+          </article>
+
+          <article class="feature">
+            <div class="specimen" aria-hidden="true">
+              <pre class="term-mini"><span class="prompt">$ </span>pnpm run deploy
+<span class="faint">midnight.you.workers.dev</span></pre>
+            </div>
+            <h3>Deploys to Cloudflare</h3>
+            <p>The page ships as a static-assets Worker. Push to GitHub and the included workflow builds and deploys it.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="start" aria-label="Get started">
+      <div class="wrap split">
+        <div>
+          <div class="section-head">
+            <h2>Run your own</h2>
+            <p>Clone the repository, paste your config from the editor into <code>config.json</code>, and deploy. The first deploy opens a browser to log in to Cloudflare.</p>
+          </div>
+          <div class="pane terminal">
+            <div class="pane-bar">
+              <span class="filename">Terminal</span>
+              <span class="spacer"></span>
+              <button class="btn" type="button" data-copy="git clone {{repo}}&#10;cd midnight&#10;pnpm install&#10;pnpm dev">Copy</button>
+            </div>
+<pre><span class="prompt">$ </span>git clone {{repo}}
+<span class="prompt">$ </span>cd midnight
+<span class="prompt">$ </span>pnpm install
+<span class="prompt">$ </span>pnpm dev          <span class="faint"># http://localhost:8787</span>
+<span class="prompt">$ </span>pnpm run deploy   <span class="faint"># build, then publish</span></pre>
+          </div>
+        </div>
+        <div>
+          <div class="section-head">
+            <h2>How the build works</h2>
+            <p>No framework and no runtime: all of it happens at build time.</p>
+          </div>
+          <ol class="steps">
+            <li>Reads <code>config.json</code> and checks it. A missing <code>url</code> stops the build and names the row.</li>
+            <li>Picks an icon for each link from <code>icons/icons.json</code>, copying in new brands from Simple Icons.</li>
+            <li>Makes each brand colour readable on black and assigns the keyboard keys.</li>
+            <li>Renders the bio and footer through a small inline-Markdown pass.</li>
+            <li>Writes the HTML, CSS and icons into <code>dist/index.html</code> and draws <code>dist/social-card.png</code>.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap">
+    <p>Brand marks from <a href="https://simpleicons.org" target="_blank" rel="noopener noreferrer">Simple Icons</a> (CC0-1.0). Each remains a trademark of its owner.</p>
+    <p>Powered by <strong>Midnight</strong></p>
+  </footer>
+
+<script>
+{{script}}
+</script>
+</body>
+</html>
