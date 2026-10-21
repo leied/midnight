@@ -1,0 +1,22 @@
+{
+  "name": "Jane Doe",
+  "bio": "Designer and developer in **Lisbon**.\nNotes on quiet software at [example.com](https://example.com).",
+  "avatar": null,
+  "meta": {
+    "url": "https://example.com"
+  },
+  "theme": {
+    "accent": "#ffffff",
+    "brandColors": true,
+    "keys": true,
+    "radius": "999px"
+  },
+  "links": [
+    { "name": "GitHub", "url": "https://github.com/jane", "group": "Elsewhere" },
+    { "name": "Twitter", "url": "https://x.com/jane", "group": "Elsewhere" },
+    { "name": "Instagram", "url": "https://instagram.com/jane", "group": "Elsewhere" },
+    { "name": "Videos", "url": "https://youtube.com/@jane", "group": "Elsewhere" },
+    { "name": "Email", "url": "mailto:jane@example.com", "group": "Contact" }
+  ],
+  "footer": "Powered by **Midnight**"
+}

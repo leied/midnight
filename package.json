@@ -4,12 +4,20 @@
   "private": true,
   "description": "Minimal AMOLED link-in-bio page, configured by one JSON file, deployed to Cloudflare.",
   "type": "module",
+  "packageManager": "pnpm@11.28.5",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "dev": "node build.mjs && wrangler dev",
     "deploy": "node build.mjs && wrangler deploy",
-    "check": "node build.mjs && wrangler deploy --dry-run"
+    "check": "node build.mjs && wrangler deploy --dry-run",
+    "launch": "node launch/build.mjs",
+    "launch:watch": "node launch/build.mjs --watch",
+    "launch:dev": "node launch/build.mjs && wrangler dev --config launch/wrangler.jsonc --port 8788 --inspector-port 9230",
+    "launch:check": "node launch/build.mjs && wrangler deploy --config launch/wrangler.jsonc --dry-run",
+    "launch:deploy": "node launch/build.mjs && wrangler deploy --config launch/wrangler.jsonc",
+    "check:all": "pnpm check && pnpm launch:check",
+    "deploy:all": "pnpm run deploy && pnpm launch:deploy"
   },
   "devDependencies": {
     "sharp": "^0.35.2",
