@@ -45,6 +45,10 @@ There is no framework and no runtime. `build.mjs` runs at build time, and the pa
 4. Renders the bio and footer through a small inline-Markdown pass.
 5. Fills all of that into a template string — the HTML, the CSS and the icons are one document —
    and writes `dist/index.html`.
+6. Writes `dist/_headers`, which Cloudflare applies to every response: a Content-Security-Policy
+   that lets only the page's own shortcut script run (pinned by its SHA-256 hash, recomputed each
+   build), plus `nosniff`, a referrer policy and a permissions policy. The file is read at deploy
+   time and never served.
 
 `wrangler` then uploads `dist/` as a static-assets Worker. Nothing is fetched at page load, and
 nothing is computed in the browser, so changing anything means editing `config.json` and
@@ -185,12 +189,27 @@ tell you if you ever need it back.
 
 ## Deploying from GitHub
 
-`.github/workflows/deploy.yml` builds `config.json` into `dist/index.html` and deploys it on every
-push to `main` or `master` (or when manually run from the Actions tab). The job summary includes
-the deployed URL. Add two repository secrets:
+Two workflows deploy the two Workers independently, each on pushes to `main` or `master` that touch
+its files (or when run manually from the Actions tab). Each job summary includes the deployed URL.
 
-- `CLOUDFLARE_API_TOKEN` — an API token with the **Edit Cloudflare Workers** template.
+- `.github/workflows/deploy.yml` builds `config.json` into `dist/` and deploys the `midnight`
+  Worker.
+- `.github/workflows/deploy-launch.yml` builds `launch/` and deploys the `midnight-launch` Worker.
+
+Both use the same two repository secrets:
+
+- `CLOUDFLARE_API_TOKEN` — an API token with the **Edit Cloudflare Workers** template, with its
+  account resources limited to this one account.
 - `CLOUDFLARE_ACCOUNT_ID` — from the Workers overview page in the dashboard.
+
+Third-party actions are pinned to commit SHAs, since one of them receives the token. The version
+each SHA corresponds to is in a comment beside it; update both together.
+
+Set the repository **variable** `LAUNCH_URL` to the launch page's address (see
+[Launch page](#launch-page)) so its build adds a canonical link and a social card.
+
+Before the first push, `pnpm check:all` builds both sites and runs `wrangler deploy --dry-run` on
+each, without publishing anything.
 
 ## Custom domain
 
@@ -200,7 +219,8 @@ Add a route to `wrangler.jsonc` (the zone must be on your Cloudflare account):
 "routes": [{ "pattern": "links.example.com", "custom_domain": true }]
 ```
 
-Then `pnpm run deploy`, and set `meta.url` to the same address.
+Then `pnpm run deploy`, and set `meta.url` to the same address. The launch page works the same
+way: add the route to `launch/wrangler.jsonc` and set `LAUNCH_URL` to it.
 
 ## Commands
 
@@ -214,7 +234,10 @@ Then `pnpm run deploy`, and set `meta.url` to the same address.
 | `pnpm launch` | Write the launch page to `launch/dist/index.html` |
 | `pnpm launch:watch` | Rebuild the launch page on every save |
 | `pnpm launch:dev` | Build the launch page, then serve it on port 8788 |
+| `pnpm launch:check` | Build the launch page and validate its deploy without publishing |
 | `pnpm launch:deploy` | Build the launch page and publish it as its own Worker |
+| `pnpm check:all` | `check` and `launch:check` together |
+| `pnpm deploy:all` | Publish both Workers |
 
 `deploy` needs the explicit `run` — plain `pnpm deploy` is pnpm's own workspace command.
 `npm` works too: swap `pnpm x` for `npm run x`.
@@ -243,7 +266,15 @@ pnpm launch:dev    # http://localhost:8788
   common ones. Any other brand shows the generic arrow in the preview, though a real build finds its
   mark. Building the launch page needs `simple-icons` installed.
 - `launch/wrangler.jsonc` deploys it as a separate `midnight-launch` Worker, so it never replaces
-  your link page. The GitHub workflow doesn't deploy it.
+  your link page. `.github/workflows/deploy-launch.yml` deploys it from CI.
+- Set `LAUNCH_URL` to the address it is served from (for example
+  `LAUNCH_URL=https://midnight-launch.<your-subdomain>.workers.dev pnpm launch:deploy`). The build
+  then adds a canonical link, `og:url`, and a 1200×630 `launch/dist/social-card.png`. Without it the
+  page still works, but links to it share as plain text cards.
+- `launch/dist/_headers` sets the same headers as the link page, except that inline scripts are
+  allowed: the previews are `srcdoc` frames, which inherit the page's policy and run a new script
+  on every rebuild. Nothing can be fetched from another origin except images.
+- `pnpm launch:dev` uses inspector port 9230, so it can run alongside `pnpm dev`.
 
 ## Licensing of the icons
 

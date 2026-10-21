@@ -1,0 +1,43 @@
+name: Build and deploy the launch page
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['launch/**', 'lib/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy-launch.yml']
+  workflow_dispatch:
+
+# Same secrets as the link page; the launch page is a separate Worker, so the two never collide.
+permissions:
+  contents: read
+
+concurrency:
+  group: midnight-launch-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate the launch page
+        run: pnpm launch
+        env:
+          # Optional repository variable: the deployed address, for the canonical link and social card.
+          LAUNCH_URL: ${{ vars.LAUNCH_URL }}
+      - name: Deploy launch page to Cloudflare Workers
+        id: deploy
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config launch/wrangler.jsonc
+          packageManager: pnpm
+      - name: Add deployment URL to the job summary
+        run: echo "### Deployed to ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"

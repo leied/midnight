@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { headersFile, scriptHashes } from './lib/headers.mjs';
 import { BRAND_SOURCES, render, socialCardOptions, socialCardSvg, socialCardUrl, validate } from './lib/render.mjs';
 import { loadSimpleIcons } from './lib/simple-icons.mjs';
 
@@ -148,6 +149,12 @@ async function build() {
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+  // Only the shortcut script may run; the avatar may be any https: image.
+  fs.writeFileSync(path.join(OUT_DIR, '_headers'), headersFile({
+    'script-src': scriptHashes(html),
+    'style-src': ["'unsafe-inline'"],
+    'img-src': ["'self'", 'data:', 'https:'],
+  }));
   const icons = writeIcons(used);
 
   const pad = Math.max(...report.map((r) => r.name?.length ?? 0), 4);

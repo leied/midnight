@@ -7,6 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+import { headersFile } from '../lib/headers.mjs';
 import * as M from '../lib/render.mjs';
 import { loadSimpleIcons } from '../lib/simple-icons.mjs';
 
@@ -17,6 +19,10 @@ const RENDERER = path.join(root, 'lib', 'render.mjs');
 const SOURCES = ['page.html', 'style.css', 'editor.js', 'demo.json'].map((f) => path.join(here, f));
 
 const REPO = 'https://github.com/leied/midnight';
+
+// Where the launch page is served, e.g. https://midnight.example.com. Social crawlers need an
+// absolute address, so the canonical link and the social card are only written when it is set.
+const SITE_URL = process.env.LAUNCH_URL?.trim() || null;
 
 // The brands the editor resolves without the full Simple Icons set: the ones people link to most.
 // A real build searches every brand, so this only limits the preview.
@@ -59,7 +65,35 @@ function bundleIcons() {
   return { icons, pkg };
 }
 
-function build() {
+/** canonical, og:url and a generated 1200×630 card — or just a text card without SITE_URL. */
+async function socialMeta(findIcon) {
+  if (!SITE_URL) {
+    fs.rmSync(path.join(OUT_DIR, 'social-card.png'), { force: true });
+    return '<meta name="twitter:card" content="summary">';
+  }
+  const url = new URL('/', SITE_URL).href;
+  const image = new URL('social-card.png', url).href;
+  const card = {
+    name: 'Midnight',
+    meta: {
+      url,
+      // The three hero links: editor blue, GitHub on black, Cloudflare orange.
+      socialCard: { description: 'A link-in-bio page for true-black screens.', ribbon: 'custom', ribbonColors: ['#7cc4f8', '#ffffff', '#f6821f'] },
+    },
+  };
+  await sharp(Buffer.from(M.socialCardSvg(card, { findIcon })))
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(OUT_DIR, 'social-card.png'));
+  return [
+    `<link rel="canonical" href="${M.esc(url)}">`,
+    `<meta property="og:url" content="${M.esc(url)}">`,
+    `<meta property="og:image" content="${M.esc(image)}">`,
+    `<meta name="twitter:image" content="${M.esc(image)}">`,
+    '<meta name="twitter:card" content="summary_large_image">',
+  ].join('\n');
+}
+
+async function build() {
   const read = (f) => fs.readFileSync(path.join(here, f), 'utf8');
   const demo = JSON.parse(read('demo.json'));
   const { icons, pkg } = bundleIcons();
@@ -73,8 +107,10 @@ function build() {
   const pageBytes = Buffer.byteLength(demoPage);
   const shortcutScript = /<script>([\s\S]*?)<\/script>/.exec(demoPage)?.[1] ?? '';
 
+  fs.mkdirSync(OUT_DIR, { recursive: true });
   const values = {
     repo: REPO,
+    social: await socialMeta(findIcon),
     favicon: M.favicon('Midnight', '#ffffff'),
     size: `${Math.round(pageBytes / 1024)} kB`,
     sizeExact: `${(pageBytes / 1024).toFixed(1)} kB`,
@@ -109,14 +145,21 @@ ${read('editor.js')}
     return values[key];
   });
 
-  fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
-  console.log(`\n  launch → launch/dist/index.html  (${(Buffer.byteLength(html) / 1024).toFixed(1)} kB, ${BRANDS.length} brands bundled)\n`);
+  // The previews are srcdoc frames, which inherit this policy and run a fresh inline script on
+  // every keystroke, so scripts cannot be pinned by hash here. Nothing can be fetched, though.
+  fs.writeFileSync(path.join(OUT_DIR, '_headers'), headersFile({
+    'script-src': ["'unsafe-inline'"],
+    'style-src': ["'unsafe-inline'"],
+    'img-src': ["'self'", 'data:', 'https:'],
+  }));
+  console.log(`\n  launch → launch/dist/index.html  (${(Buffer.byteLength(html) / 1024).toFixed(1)} kB, ${BRANDS.length} brands bundled)`);
+  console.log(SITE_URL
+    ? `  social card → launch/dist/social-card.png  (shared as ${new URL('social-card.png', SITE_URL).href})\n`
+    : '  ! LAUNCH_URL is not set: no canonical link or social card. Set it to the deployed address.\n');
 }
 
-const run = () => {
-  try { build(); } catch (error) { console.error(`\n  ${error.message}\n`); process.exitCode = 1; }
-};
+const run = () => build().catch((error) => { console.error(`\n  ${error.message}\n`); process.exitCode = 1; });
 run();
 
 if (process.argv.includes('--watch')) {
